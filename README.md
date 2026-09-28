@@ -1,4 +1,4 @@
-# SillyTavern Native PiP v1.1.0 — GitHub Actions 版
+# SillyTavern Native PiP v1.1.1 — GitHub Actions 版
 
 本版在原生 PiP 工程基础上加入了 **GitHub Actions 一键编译 IPA**。
 
@@ -113,3 +113,14 @@
 这版是“原生本地通知”：只要 SillyTavern 页面实际收到 `generation_ended`，就会让原生层发横幅。PiP 激活时 App 具备后台媒体运行条件，适合你目前“切出去看视频，等回复”的使用方式。
 
 如果以后要求 **App 被强制退出/网页完全不运行时，服务器仍然主动把回复完成推到 iPhone**，则需要第二阶段：APNs Device Token + Apple Developer Push Key + SillyTavern 后端 Server Plugin。那是远程 Push，不是这版的本地通知。
+
+
+## v1.1.1 修复：GitHub Web/Windows 上传后的脚本权限
+
+如果旧版日志出现：
+
+```text
+./scripts/build-unsigned-ipa.sh: Permission denied
+```
+
+这是 GitHub/Windows 上传时没有保留 Unix 可执行权限造成的。v1.1.1 的工作流改为 `bash ./scripts/build-unsigned-ipa.sh`，因此不再依赖脚本的 executable bit。

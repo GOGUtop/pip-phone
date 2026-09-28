@@ -70,3 +70,14 @@ Artifact 中包含：
 ### Actions 报错
 
 打开失败的 workflow run，展开红色步骤，把完整日志截图或复制给 ChatGPT，即可继续针对具体 Xcode 错误修改。
+
+
+## v1.1.1 修复：GitHub Web/Windows 上传后的脚本权限
+
+如果旧版日志出现：
+
+```text
+./scripts/build-unsigned-ipa.sh: Permission denied
+```
+
+这是 GitHub/Windows 上传时没有保留 Unix 可执行权限造成的。v1.1.1 的工作流改为 `bash ./scripts/build-unsigned-ipa.sh`，因此不再依赖脚本的 executable bit。
