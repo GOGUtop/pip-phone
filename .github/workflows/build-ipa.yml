@@ -67,7 +67,9 @@ jobs:
           echo "Build number: $GITHUB_RUN_NUMBER"
 
       - name: Build IPA
-        run: ./scripts/build-unsigned-ipa.sh
+        # GitHub web uploads / Windows can lose the executable bit.
+        # Invoke the script through bash so the workflow works regardless of file mode.
+        run: bash ./scripts/build-unsigned-ipa.sh
 
       - name: Verify IPA contents
         run: |
