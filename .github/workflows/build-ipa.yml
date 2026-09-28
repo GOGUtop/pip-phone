@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       start_url:
-        description: 'SillyTavern URL (leave the default unless your address changed)'
+        description: 'SillyTavern URL'
         required: true
         default: 'http://aaa.xixisillytavern.top:8001/'
         type: string
@@ -21,6 +21,11 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Workflow version
+        run: |
+          echo 'WORKFLOW_VERSION=v1.1.3-INLINE'
+          echo "Commit: $GITHUB_SHA"
 
       - name: Show Xcode version
         run: |
@@ -66,15 +71,94 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" SillyTavernNativePiP/Info.plist
           echo "Build number: $GITHUB_RUN_NUMBER"
 
-      - name: Build IPA
-        # GitHub web uploads / Windows can lose the executable bit.
-        # Invoke the script through bash so the workflow works regardless of file mode.
-        run: bash ./scripts/build-unsigned-ipa.sh
+      - name: Build unsigned app
+        id: xcode
+        shell: bash
+        run: |
+          set +e
+          rm -rf build output
+          mkdir -p build output
+
+          xcodebuild \
+            -project SillyTavernNativePiP.xcodeproj \
+            -target SillyTavernNativePiP \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            SYMROOT="$PWD/build" \
+            OBJROOT="$PWD/build/obj" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            clean build
+
+          status=$?
+          echo "xcode_status=$status" >> "$GITHUB_OUTPUT"
+          echo "xcodebuild returned: $status"
+          # Intentionally exit 0 here. The next step decides success by inspecting
+          # the actual .app product. Some unsigned device builds have returned 65
+          # after printing BUILD SUCCEEDED on GitHub-hosted Xcode runners.
+          exit 0
+
+      - name: Verify compiled app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$PWD/build/Release-iphoneos/SillyTavernNativePiP.app"
+          BIN="$APP/SillyTavernNativePiP"
+
+          echo "xcodebuild status was: ${{ steps.xcode.outputs.xcode_status }}"
+          echo "Expected app: $APP"
+          find "$PWD/build" -maxdepth 4 -name '*.app' -print || true
+
+          test -d "$APP"
+          test -f "$APP/Info.plist"
+          test -f "$BIN"
+
+          echo '--- executable ---'
+          /usr/bin/file "$BIN"
+          echo '--- Info.plist ---'
+          /usr/bin/plutil -p "$APP/Info.plist" | head -80
+          echo 'Compiled .app is complete; continuing to package IPA.'
+
+      - name: Package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$PWD/build/Release-iphoneos/SillyTavernNativePiP.app"
+          STAGE="$PWD/build/ipa-stage"
+          OUT="$PWD/output"
+
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE/Payload" "$OUT"
+          /usr/bin/ditto "$APP" "$STAGE/Payload/SillyTavernNativePiP.app"
+
+          (
+            cd "$STAGE"
+            /usr/bin/zip -qry "$OUT/SillyTavernNativePiP-unsigned.ipa" Payload
+          )
+
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent \
+            "$APP" "$OUT/SillyTavernNativePiP-app.zip"
+
+          (
+            cd "$OUT"
+            shasum -a 256 SillyTavernNativePiP-unsigned.ipa SillyTavernNativePiP-app.zip > SHA256SUMS.txt
+          )
+
+          echo '--- output ---'
+          ls -lah "$OUT"
 
       - name: Verify IPA contents
+        shell: bash
         run: |
-          unzip -l output/SillyTavernNativePiP-unsigned.ipa | head -80
-          test -n "$(unzip -Z1 output/SillyTavernNativePiP-unsigned.ipa | grep '^Payload/SillyTavernNativePiP.app/SillyTavernNativePiP$' || true)"
+          set -euo pipefail
+          IPA="output/SillyTavernNativePiP-unsigned.ipa"
+          test -s "$IPA"
+          unzip -l "$IPA" | head -100
+          unzip -Z1 "$IPA" | grep -Fx 'Payload/SillyTavernNativePiP.app/SillyTavernNativePiP'
+          echo 'IPA structure verified.'
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -92,8 +176,10 @@ jobs:
           {
             echo '## ✅ IPA build finished'
             echo
-            echo '- Download the artifact named **SillyTavernNativePiP-IPA-${{ github.run_number }}** from this workflow run.'
+            echo '- Workflow: **v1.1.3-INLINE**'
+            echo '- Xcode returned: `${{ steps.xcode.outputs.xcode_status }}` (the compiled app itself was verified independently)'
+            echo '- Artifact: **SillyTavernNativePiP-IPA-${{ github.run_number }}**'
             echo '- Main file: `SillyTavernNativePiP-unsigned.ipa`'
-            echo '- This IPA is intentionally unsigned. Install it after signing with Sideloadly / SideStore / AltStore, or add Apple signing credentials to a later workflow.'
-            echo '- Configured site: `${{ inputs.start_url }}`'
+            echo '- Site: `${{ inputs.start_url }}`'
+            echo '- IPA is unsigned and must be signed by Sideloadly / SideStore / AltStore before installation.'
           } >> "$GITHUB_STEP_SUMMARY"
