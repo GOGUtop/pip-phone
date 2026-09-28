@@ -1,0 +1,97 @@
+name: Build iPhone IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_url:
+        description: 'SillyTavern URL (leave the default unless your address changed)'
+        required: true
+        default: 'http://aaa.xixisillytavern.top:8001/'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Apply SillyTavern URL
+        env:
+          START_URL: ${{ inputs.start_url }}
+        run: |
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          url = os.environ['START_URL'].strip()
+          parsed = urlparse(url)
+          if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+              raise SystemExit(f'Invalid URL: {url!r}')
+
+          p = Path('SillyTavernNativePiP/AppConfig.swift')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(
+              r'static let startURL = URL\(string: ".*?"\)!',
+              f'static let startURL = URL(string: "{url}")!',
+              text,
+              count=1,
+          )
+          text = re.sub(
+              r'static let allowedHost = ".*?"',
+              f'static let allowedHost = "{parsed.hostname}"',
+              text,
+              count=1,
+          )
+          p.write_text(text, encoding='utf-8')
+          print('Configured URL:', url)
+          print('Allowed host:', parsed.hostname)
+          PY
+
+      - name: Set build number
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" SillyTavernNativePiP/Info.plist
+          echo "Build number: $GITHUB_RUN_NUMBER"
+
+      - name: Build IPA
+        run: ./scripts/build-unsigned-ipa.sh
+
+      - name: Verify IPA contents
+        run: |
+          unzip -l output/SillyTavernNativePiP-unsigned.ipa | head -80
+          test -n "$(unzip -Z1 output/SillyTavernNativePiP-unsigned.ipa | grep '^Payload/SillyTavernNativePiP.app/SillyTavernNativePiP$' || true)"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SillyTavernNativePiP-IPA-${{ github.run_number }}
+          path: |
+            output/SillyTavernNativePiP-unsigned.ipa
+            output/SillyTavernNativePiP-app.zip
+            output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Build summary
+        run: |
+          {
+            echo '## ✅ IPA build finished'
+            echo
+            echo '- Download the artifact named **SillyTavernNativePiP-IPA-${{ github.run_number }}** from this workflow run.'
+            echo '- Main file: `SillyTavernNativePiP-unsigned.ipa`'
+            echo '- This IPA is intentionally unsigned. Install it after signing with Sideloadly / SideStore / AltStore, or add Apple signing credentials to a later workflow.'
+            echo '- Configured site: `${{ inputs.start_url }}`'
+          } >> "$GITHUB_STEP_SUMMARY"
