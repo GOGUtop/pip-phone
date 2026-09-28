@@ -72,7 +72,7 @@ Artifact 中包含：
 打开失败的 workflow run，展开红色步骤，把完整日志截图或复制给 ChatGPT，即可继续针对具体 Xcode 错误修改。
 
 
-## v1.1.1 修复：GitHub Web/Windows 上传后的脚本权限
+## v1.1.2 修复：GitHub Web/Windows 上传后的脚本权限
 
 如果旧版日志出现：
 
@@ -80,4 +80,11 @@ Artifact 中包含：
 ./scripts/build-unsigned-ipa.sh: Permission denied
 ```
 
-这是 GitHub/Windows 上传时没有保留 Unix 可执行权限造成的。v1.1.1 的工作流改为 `bash ./scripts/build-unsigned-ipa.sh`，因此不再依赖脚本的 executable bit。
+这是 GitHub/Windows 上传时没有保留 Unix 可执行权限造成的。v1.1.2 的工作流改为 `bash ./scripts/build-unsigned-ipa.sh`，因此不再依赖脚本的 executable bit。
+
+
+## v1.2.0 后台回复完成通知修复
+
+这一版与前端扩展 v3.1.0 配合：回复生成期间，扩展在 WKWebView 内播放无声保活音轨；原生壳把 AVAudioSession 固定为 `playback + mixWithOthers`。目的不是发声，而是避免 iOS 在切到后台后冻结 WKWebView 的生成完成事件，同时尽量不打断其它 App 的视频声音。生成完成/停止后会停止网页保活音轨。
+
+请同时升级 SillyTavern 前端扩展到 v3.1.0。

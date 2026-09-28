@@ -15,4 +15,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
         self.window = window
     }
+
+    func sceneWillResignActive(_ scene: UIScene) {
+        AudioSessionManager.shared.reassertIfNeeded()
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        AudioSessionManager.shared.reassertIfNeeded()
+    }
 }

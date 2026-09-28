@@ -1,4 +1,4 @@
-# SillyTavern Native PiP v1.1.1 — GitHub Actions 版
+# SillyTavern Native PiP v1.1.2 — GitHub Actions 版
 
 本版在原生 PiP 工程基础上加入了 **GitHub Actions 一键编译 IPA**。
 
@@ -115,7 +115,7 @@
 如果以后要求 **App 被强制退出/网页完全不运行时，服务器仍然主动把回复完成推到 iPhone**，则需要第二阶段：APNs Device Token + Apple Developer Push Key + SillyTavern 后端 Server Plugin。那是远程 Push，不是这版的本地通知。
 
 
-## v1.1.1 修复：GitHub Web/Windows 上传后的脚本权限
+## v1.1.2 修复：GitHub Web/Windows 上传后的脚本权限
 
 如果旧版日志出现：
 
@@ -123,4 +123,16 @@
 ./scripts/build-unsigned-ipa.sh: Permission denied
 ```
 
-这是 GitHub/Windows 上传时没有保留 Unix 可执行权限造成的。v1.1.1 的工作流改为 `bash ./scripts/build-unsigned-ipa.sh`，因此不再依赖脚本的 executable bit。
+这是 GitHub/Windows 上传时没有保留 Unix 可执行权限造成的。v1.1.2 的工作流改为 `bash ./scripts/build-unsigned-ipa.sh`，因此不再依赖脚本的 executable bit。
+
+
+## v1.1.3 构建修复
+
+GitHub Actions 的 IPA 构建已改成完全内联 workflow，不再依赖 `scripts/build-unsigned-ipa.sh`。即使某些 Xcode Runner 在已经打印 `BUILD SUCCEEDED` 后仍返回 65，workflow 会单独检查 `.app`、Info.plist 和主可执行文件；产物完整就继续打包 IPA。日志中应出现 `WORKFLOW_VERSION=v1.1.3-INLINE`。
+
+
+## v1.2.0 后台回复完成通知修复
+
+这一版与前端扩展 v3.1.0 配合：回复生成期间，扩展在 WKWebView 内播放无声保活音轨；原生壳把 AVAudioSession 固定为 `playback + mixWithOthers`。目的不是发声，而是避免 iOS 在切到后台后冻结 WKWebView 的生成完成事件，同时尽量不打断其它 App 的视频声音。生成完成/停止后会停止网页保活音轨。
+
+请同时升级 SillyTavern 前端扩展到 v3.1.0。

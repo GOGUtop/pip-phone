@@ -18,6 +18,7 @@
 		A10000000000000000000009 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* AVKit.framework */; };
 		A1000000000000000000000A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* AVFoundation.framework */; };
 		A1000000000000000000000B /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* UserNotifications.framework */; };
+		A1000000000000000000000C /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* AudioSessionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		A20000000000000000000011 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
 		A20000000000000000000012 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		A20000000000000000000013 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
+		A20000000000000000000014 /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +71,7 @@
 				A20000000000000000000003 /* WebViewController.swift */,
 				A20000000000000000000004 /* PiPManager.swift */,
 				A20000000000000000000005 /* NotificationManager.swift */,
+				A20000000000000000000014 /* AudioSessionManager.swift */,
 				A20000000000000000000007 /* Info.plist */,
 				A40000000000000000000005 /* Resources */,
 			);
@@ -177,6 +180,7 @@
 				A10000000000000000000003 /* WebViewController.swift in Sources */,
 				A10000000000000000000004 /* PiPManager.swift in Sources */,
 				A10000000000000000000005 /* NotificationManager.swift in Sources */,
+				A1000000000000000000000C /* AudioSessionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

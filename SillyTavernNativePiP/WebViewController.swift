@@ -110,12 +110,21 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             ])
 
         case "startPiP":
+            _ = AudioSessionManager.shared.prepareMixedBackgroundPlayback()
             let url = (body["videoURL"] as? String).flatMap(URL.init(string:))
             let duration = (body["maxDurationSeconds"] as? NSNumber)?.doubleValue ?? 300
             pipManager.start(videoURL: url, maxDuration: duration)
 
         case "stopPiP":
             pipManager.stop()
+
+        case "prepareBackgroundAudio":
+            let ok = AudioSessionManager.shared.prepareMixedBackgroundPlayback(markWebKeepAlive: true)
+            sendEvent("st-native-background-audio-state", detail: ["active": ok])
+
+        case "releaseBackgroundAudio":
+            AudioSessionManager.shared.releaseWebKeepAliveRequest()
+            sendEvent("st-native-background-audio-state", detail: ["active": false])
 
         case "requestNotifications":
             NotificationManager.shared.requestAuthorization { [weak self] granted, status in

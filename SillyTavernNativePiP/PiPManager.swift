@@ -54,14 +54,7 @@ final class PiPManager: NSObject, AVPictureInPictureControllerDelegate {
             return
         }
 
-        do {
-            let session = AVAudioSession.sharedInstance()
-            // PiP 需要 playback 类别；mixWithOthers 避免尽量抢占其他 App 的声音。
-            try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
-            try session.setActive(true)
-        } catch {
-            print("[NativePiP] audio session warning: \(error)")
-        }
+        _ = AudioSessionManager.shared.prepareMixedBackgroundPlayback()
 
         let item = AVPlayerItem(url: sourceURL)
         let queue = AVQueuePlayer()
