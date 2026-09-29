@@ -8,5 +8,20 @@ enum AppConfig {
     static let allowedHost = "aaa.xixisillytavern.top"
 
     static let bridgeName = "stNative"
-    static let bridgeVersion = "1.3.0"
+    static let bridgeVersion = "1.4.0"
+
+    /// 与 SillyTavern Server Plugin 共用的稳定设备 ID。
+    static let deviceID: String = {
+        let key = "st.native.device-id"
+        if let existing = UserDefaults.standard.string(forKey: key), !existing.isEmpty {
+            return existing
+        }
+        let created = UUID().uuidString.lowercased()
+        UserDefaults.standard.set(created, forKey: key)
+        return created
+    }()
+
+    static var monitorStatusURL: URL {
+        URL(string: "/api/plugins/st-native-monitor/status", relativeTo: startURL)!.absoluteURL
+    }
 }

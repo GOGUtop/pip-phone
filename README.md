@@ -1,42 +1,70 @@
-# SillyTavern Native PiP v1.3.0
+# SillyTavern Native PiP iOS Shell v1.4.0
 
-这个版本把 **PiP 的生命周期完全移到 iPhone 原生 App**，不再依赖 SillyTavern 网页里的 PiP 按钮。
+这是配套 `st-native-monitor` SillyTavern Server Plugin 的 iPhone 原生壳。
 
-## v1.3.0 主要变化
+## v1.4.0 重点
 
-- 删除旧版 **300 秒 / 5 分钟自动关闭 PiP** 的逻辑。
-- App 打开后会自动准备并尝试启动原生 `AVPictureInPictureController`。
-- `canStartPictureInPictureAutomaticallyFromInline = true`：切到后台时持续保持 PiP 自动启动能力。
-- PiP 被系统临时停止后，不再销毁 `AVPlayer` / `AVPictureInPictureController`，而是继续保持播放器并自动重新待命。
-- App 回到前台、准备进入后台、已经进入后台时都会重新检查 PiP 状态。
-- PiP 使用 App 内置 `Resources/pip-loop.mp4`，因此不再需要前端扩展给 PiP 提供视频 URL。
-- 原来的通知桥、后台音频会话和 SillyTavern 地址保持不变。
+旧版完成提醒依赖 WKWebView 前端的 `generation_ended`。iOS 在后台可能冻结 WebContent/JavaScript，所以会出现“模型早就跑完，但只有重新点开 App 才响和弹横幅”。
 
-默认 SillyTavern 地址：
+v1.4.0 新增 `ServerMonitor.swift`：
+
+- 原生 App 使用 URLSession 每约 1.5 秒读取 `/api/plugins/st-native-monitor/status`。
+- App 内置一个真正的无声原生 MP3 循环，并使用 `AVAudioSession.playback + mixWithOthers`，用于尽量让原生监测器在后台继续运行；它不会主动暂停其他 App 的声音。
+- 轮询发生在 Swift 原生进程，不依赖 WKWebView JavaScript。
+- Server Plugin 在 SillyTavern 服务器端观察生成请求真正结束。
+- 服务器状态变为 `done` 后，Swift 直接通过 `UNUserNotificationCenter` 发系统横幅和系统声音。
+- 原生 PiP 常驻逻辑仍保留，不再有 5 分钟自动停止。
+
+## 必须同时安装
+
+1. iOS App v1.4.0（本工程编译出的 IPA）
+2. 前端扩展 `原生通知桥接 v3.3.0`
+3. Server Plugin `st-native-monitor v1.0.0`
+
+缺少 Server Plugin 时仍会回退到旧的前端 `generation_ended` 提醒，因此后台延迟问题仍可能出现。
+
+## 默认地址
 
 `http://aaa.xixisillytavern.top:8001/`
 
+GitHub Actions 运行时仍可以修改 `start_url`。
+
 ## GitHub Actions
 
-上传仓库后：
+仓库根目录上传：
 
-1. Actions → **Build iPhone IPA**
-2. Run workflow
-3. 日志确认：`WORKFLOW_VERSION=v1.3.0-INLINE`
-4. 下载 Artifact 里的 `SillyTavernNativePiP-unsigned.ipa`
-5. 用 SideStore / Sideloadly / AltStore 签名安装
+- `.github/`
+- `SillyTavernNativePiP/`
+- `SillyTavernNativePiP.xcodeproj/`
+- README 文件
 
-## 关于“常驻 PiP”
+运行：`Actions -> Build iPhone IPA -> Run workflow`
 
-App 会尽量持续保持 PiP，并移除了我们自己造成的 5 分钟超时。如果 iOS 因系统资源、用户手动关闭 PiP、播放器中断等原因终止系统 PiP 窗口，App 无法绕过系统强制规则；v1.3 会保留播放器并在可再次启动时自动重试，回到 App 后也会重新启动/待命。
+日志应出现：
 
-## SillyTavern 扩展
+`WORKFLOW_VERSION=v1.4.0-INLINE`
 
-PiP 已经不需要网页扩展控制。配套 `SillyTavernExtension-v3.2.0` 只继续负责：
+产物：`SillyTavernNativePiP-unsigned.ipa`
 
-- 回复开始/结束事件
-- WebView 生成期间后台保活
-- 回复完成系统通知桥接
-- 非原生 App 环境下的网页 PiP 降级
+未签名 IPA 仍需 SideStore / AltStore / Sideloadly 等签名后安装。
 
-后续可用 SillyTavern Server Plugin 替代这部分前端扩展，从服务器直接处理回复完成事件和推送。
+## 后台通知原理
+
+生成请求由前端扩展改道到：
+
+`/api/plugins/st-native-monitor/proxy`
+
+Server Plugin 再转发到 SillyTavern 原始生成端点，并只保存生成状态，不保存提示词和回复正文。对于工具调用等连续请求，插件会等待约 1.8 秒“安静窗口”后才判定整个回合结束，以减少过早通知。
+
+## 当前支持的生成后端
+
+Server Plugin v1.0.0 监测：
+
+- Chat Completion
+- Text Completion
+- Kobold
+- NovelAI
+
+Horde 暂未纳入服务端完成检测，因为它是“提交任务 + 独立状态轮询”模型，不能用初始 HTTP 请求结束作为生成结束。
+
+> 注意：这是侧载场景下的后台保活设计，会比纯网页更耗电。用户强制划掉 App、系统终止 App 或关闭后台媒体后，必须使用 APNs 才能做到完全独立于 App 存活的远程推送。

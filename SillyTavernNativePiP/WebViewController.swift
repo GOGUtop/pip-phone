@@ -5,6 +5,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private var webView: WKWebView!
     private let pipHostView = UIView(frame: CGRect(x: 0, y: 0, width: 4, height: 4))
     private lazy var pipManager = PiPManager(hostView: pipHostView)
+    private lazy var serverMonitor = ServerMonitor(statusURL: AppConfig.monitorStatusURL, deviceID: AppConfig.deviceID)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -12,12 +13,13 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         configurePiPHost()
         configureWebView()
         configureBridgeCallbacks()
+        configureServerMonitor()
         loadStartPage()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // PiP is a native app feature in v1.3. It is armed automatically and no
+        // PiP is a native app feature in v1.4. It is armed automatically and no
         // longer depends on a SillyTavern front-end button or a five-minute timer.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.pipManager.enablePersistent()
@@ -25,6 +27,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     deinit {
+        serverMonitor.stop()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: AppConfig.bridgeName)
     }
 
@@ -58,7 +61,9 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             platform: 'ios',
             bridgeVersion: '\(AppConfig.bridgeVersion)',
             available: true,
-            persistentPiP: true
+            persistentPiP: true,
+            deviceId: '\(AppConfig.deviceID)',
+            serverMonitor: true
           };
           window.dispatchEvent(new CustomEvent('st-native-ready', { detail: window.__ST_NATIVE_SHELL__ }));
         })();
@@ -101,6 +106,28 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         }
     }
 
+
+    private func configureServerMonitor() {
+        serverMonitor.cookieProvider = { [weak self] completion in
+            guard let store = self?.webView.configuration.websiteDataStore.httpCookieStore else {
+                completion(nil)
+                return
+            }
+            store.getAllCookies { cookies in
+                let header = HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
+                completion(header)
+            }
+        }
+        serverMonitor.onStateChanged = { [weak self] state, detail in
+            self?.sendEvent("st-native-server-monitor-state", detail: [
+                "state": state,
+                "detail": detail ?? NSNull(),
+                "deviceId": AppConfig.deviceID,
+            ])
+        }
+        serverMonitor.start()
+    }
+
     private func loadStartPage() {
         webView.load(URLRequest(url: AppConfig.startURL, cachePolicy: .reloadRevalidatingCacheData))
     }
@@ -133,6 +160,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                 "bridgeVersion": AppConfig.bridgeVersion,
                 "available": true,
                 "persistentPiP": true,
+                "deviceId": AppConfig.deviceID,
+                "serverMonitor": true,
             ])
 
         case "startPiP":
@@ -170,6 +199,9 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                     ])
                 }
             }
+
+        case "serverMonitorPoll":
+            serverMonitor.pollNow()
 
         case "notifyDone", "testNotification":
             let title = body["title"] as? String ?? "SillyTavern"
@@ -212,6 +244,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             "bridgeVersion": AppConfig.bridgeVersion,
             "available": true,
             "persistentPiP": true,
+            "deviceId": AppConfig.deviceID,
+            "serverMonitor": true,
         ])
         NotificationManager.shared.currentAuthorization { [weak self] status in
             DispatchQueue.main.async {

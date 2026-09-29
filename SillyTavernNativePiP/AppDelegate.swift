@@ -9,6 +9,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
     ) -> Bool {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
+        _ = AudioSessionManager.shared.startNativeKeepAlive()
         return true
     }
 
