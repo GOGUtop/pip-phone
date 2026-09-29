@@ -15,6 +15,15 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         loadStartPage()
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // PiP is a native app feature in v1.3. It is armed automatically and no
+        // longer depends on a SillyTavern front-end button or a five-minute timer.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.pipManager.enablePersistent()
+        }
+    }
+
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: AppConfig.bridgeName)
     }
@@ -48,7 +57,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
           window.__ST_NATIVE_SHELL__ = {
             platform: 'ios',
             bridgeVersion: '\(AppConfig.bridgeVersion)',
-            available: true
+            available: true,
+            persistentPiP: true
           };
           window.dispatchEvent(new CustomEvent('st-native-ready', { detail: window.__ST_NATIVE_SHELL__ }));
         })();
@@ -84,6 +94,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             DispatchQueue.main.async {
                 self?.sendEvent("st-native-pip-state", detail: [
                     "active": active,
+                    "persistent": self?.pipManager.currentState().persistent ?? true,
                     "error": error ?? NSNull(),
                 ])
             }
@@ -92,6 +103,20 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     private func loadStartPage() {
         webView.load(URLRequest(url: AppConfig.startURL, cachePolicy: .reloadRevalidatingCacheData))
+    }
+
+    // MARK: - App lifecycle → native PiP
+
+    func handleSceneDidBecomeActive() {
+        pipManager.sceneDidBecomeActive()
+    }
+
+    func handleSceneWillResignActive() {
+        pipManager.sceneWillResignActive()
+    }
+
+    func handleSceneDidEnterBackground() {
+        pipManager.sceneDidEnterBackground()
     }
 
     // MARK: - JS bridge
@@ -107,13 +132,13 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                 "platform": "ios",
                 "bridgeVersion": AppConfig.bridgeVersion,
                 "available": true,
+                "persistentPiP": true,
             ])
 
         case "startPiP":
             _ = AudioSessionManager.shared.prepareMixedBackgroundPlayback()
             let url = (body["videoURL"] as? String).flatMap(URL.init(string:))
-            let duration = (body["maxDurationSeconds"] as? NSNumber)?.doubleValue ?? 300
-            pipManager.start(videoURL: url, maxDuration: duration)
+            pipManager.enablePersistent(videoURL: url)
 
         case "stopPiP":
             pipManager.stop()
@@ -186,6 +211,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             "platform": "ios",
             "bridgeVersion": AppConfig.bridgeVersion,
             "available": true,
+            "persistentPiP": true,
         ])
         NotificationManager.shared.currentAuthorization { [weak self] status in
             DispatchQueue.main.async {

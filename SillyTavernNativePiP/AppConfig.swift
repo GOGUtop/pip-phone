@@ -8,5 +8,5 @@ enum AppConfig {
     static let allowedHost = "aaa.xixisillytavern.top"
 
     static let bridgeName = "stNative"
-    static let bridgeVersion = "1.2.0"
+    static let bridgeVersion = "1.3.0"
 }
